@@ -1,0 +1,36 @@
+name: Sincronizar histórico da Lotofácil
+
+on:
+  schedule:
+    # 12:00 UTC = 9h em Brasília (sorteios saem à noite do dia anterior, então
+    # de manhã já dá tempo do resultado estar disponível na API da Caixa).
+    - cron: '0 12 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Sincronizar histórico
+        run: node scripts/sincronizar-incremental.js
+
+      - name: Publicar se houver mudanças
+        run: |
+          if git diff --quiet historico.json; then
+            echo "Sem mudanças."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add historico.json
+          git commit -m "chore: sincroniza histórico da Lotofácil"
+          git push
